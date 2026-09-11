@@ -31,10 +31,17 @@ export async function login(page: Page): Promise<void> {
   await settle(page);
   await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible({ timeout: 60_000 });
   await page.getByLabel(/username/i).fill(ADMIN_USER);
-  await page.getByLabel(/password/i).fill(ADMIN_PASSWORD);
+  // Exact label, not /password/i. Keycloak 26 added a show/hide toggle to the sign-in form, and
+  // its button carries aria-label="Show password", so the loose regex matches two elements and
+  // fails with a strict mode violation before anything is typed. Matching the label exactly
+  // keeps this on the input. The username field has no such toggle, hence the asymmetry.
+  await page.getByLabel('Password', { exact: true }).fill(ADMIN_PASSWORD);
   await page.getByRole('button', { name: /sign in/i }).click();
   await settle(page);
-  await expect(page.getByTestId('realmSelector')).toBeVisible({ timeout: 30_000 });
+  // `currentRealm`, not the older `realmSelector`. Keycloak 26 renamed the realm switcher's
+  // data-testid; the old name resolves to nothing, so this gate used to burn its full timeout on
+  // every test before failing, which is what made a broken login look like a slow one.
+  await expect(page.getByTestId('currentRealm')).toBeVisible({ timeout: 30_000 });
 }
 
 /**
@@ -45,7 +52,15 @@ export async function login(page: Page): Promise<void> {
  * capture independent of whatever the previous test left on screen.
  */
 export async function gotoConsole(page: Page, fragment: string): Promise<void> {
-  await page.goto(`/admin/master/console/#${fragment}`);
+  await page.goto(`/admin/master/console/#${fragment}`, { waitUntil: 'domcontentloaded' });
+  // Then reload. `goto` to a URL that differs only in its fragment is a same-document navigation,
+  // so the browser fires hashchange and the SPA router may or may not remount — which is what the
+  // note above is about. Under Keycloak 26 it reliably does not: navigating from master's console
+  // to `#/myrealm/clients` left the previous realm's data on screen, so a spec looking for a row
+  // in `myrealm` searched `master` and timed out. Reloading forces a real document load, and the
+  // router then reads the fragment from scratch. Costs about a second per navigation, which is
+  // cheap next to a capture that silently photographs the wrong realm.
+  await page.reload({ waitUntil: 'networkidle' });
   await settle(page);
   // PatternFly animates form and modal entry; without this the first capture of a route can
   // catch a partially transitioned card.
