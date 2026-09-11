@@ -258,7 +258,7 @@ Then, port‑forward Keycloak and verify the realm appears in the admin console:
 kubectl port-forward svc/keycloak -n keycloak 8443:8443
 ```
 
-Open `https://localhost:8443` in your browser, accept the self‑signed certificate warning, and log in with `admin / admin`. Confirm that `myrealm` is present in the realm dropdown.
+Open `https://localhost:8443` in your browser, accept the self‑signed certificate warning, and log in with `admin / admin`. Click **Manage realms** in the left sidebar, and confirm that `myrealm` is listed.
 
 > [!NOTE]
 > If you're using the ConfigMap approach, the realm is created automatically on startup. You do not need to manually create it through the admin console.

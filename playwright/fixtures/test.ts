@@ -23,8 +23,8 @@ export async function settle(page: Page): Promise<void> {
  * Log in to the Keycloak admin console and wait for it to settle.
  *
  * The console is a single-page app, so `networkidle` alone is not enough — the shell renders
- * before the realm list resolves, and a capture taken too early catches a spinner. Waiting for
- * the realm selector proves the app is interactive.
+ * before the realm resolves, and a capture taken too early catches a spinner. Waiting for the
+ * current-realm label in the sidebar proves the app is interactive.
  */
 export async function login(page: Page): Promise<void> {
   await page.goto('/admin/master/console/');
@@ -38,9 +38,12 @@ export async function login(page: Page): Promise<void> {
   await page.getByLabel('Password', { exact: true }).fill(ADMIN_PASSWORD);
   await page.getByRole('button', { name: /sign in/i }).click();
   await settle(page);
-  // `currentRealm`, not the older `realmSelector`. Keycloak 26 renamed the realm switcher's
-  // data-testid; the old name resolves to nothing, so this gate used to burn its full timeout on
-  // every test before failing, which is what made a broken login look like a slow one.
+  // `currentRealm`, not the older `realmSelector`. This is a replacement, not a rename: Keycloak
+  // 26 deleted the realm switcher dropdown that carried `realmSelector` and moved realm switching
+  // to the Manage realms page, so the sidebar now shows the current realm as a static label
+  // (`<span data-testid="currentRealm">` inside the nav section title, PageNav.tsx). Do not go
+  // looking for a switcher to re-target. The old name resolves to nothing, so this gate used to
+  // burn its full timeout on every test before failing, which made a broken login look slow.
   await expect(page.getByTestId('currentRealm')).toBeVisible({ timeout: 30_000 });
 }
 
